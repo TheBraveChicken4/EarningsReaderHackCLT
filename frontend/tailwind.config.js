@@ -5,11 +5,10 @@ module.exports = {
   ],
   theme: {
     extend: {
-    },
-    fontFamily: {
-      
-    },
-   
+      fontFamily: {
+        customFont: ['"Montserrat"', "sans-serif"]
+      },
+    },   
   },
   plugins: [],
 }

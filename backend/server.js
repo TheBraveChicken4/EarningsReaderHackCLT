@@ -54,6 +54,50 @@ app.post('/write-url', (req, res) => {
     });
 });
 
+app.post('/set-recording-running', (req, res) => {
+    const { recordingRunning } = req.body;
+
+    if (typeof recordingRunning !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid recording running status.' });
+    }
+
+    // Read existing env variables
+    const currentUrl = process.env.STORED_URL || '';
+    const currentModelRunning = process.env.MODELRUNNING || 'false';
+
+    // Write the new state
+    try {
+        fs.writeFileSync(envFilePath, `STORED_URL=${currentUrl}\nRECORDINGRUNNING=${recordingRunning}\nMODELRUNNING=${currentModelRunning}\n`, { flag: 'w' });
+        res.json({ message: `Recording running state set to ${recordingRunning}` });
+    } catch (err) {
+        console.error('Error writing recording running state to file:', err);
+        res.status(500).json({ error: 'Error writing recording running state to file' });
+    }
+});
+
+app.post('/set-model-running', (req, res) => {
+    const { modelRunning } = req.body;
+
+    if (typeof modelRunning !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid model running status.' });
+    }
+
+    // Read existing env variables
+    const currentUrl = process.env.STORED_URL || '';
+    const currentRecordingRunning = process.env.RECORDINGRUNNING || 'false';
+
+    // Write the new state
+    try {
+        fs.writeFileSync(envFilePath, `STORED_URL=${currentUrl}\nRECORDINGRUNNING=${currentRecordingRunning}\nMODELRUNNING=${modelRunning}\n`, { flag: 'w' });
+        res.json({ message: `Model running state set to ${modelRunning}` });
+    } catch (err) {
+        console.error('Error writing model running state to file:', err);
+        res.status(500).json({ error: 'Error writing model running state to file' });
+    }
+});
+
+
+
 app.get('/stored-url', (req, res) => {
     res.json({ storedUrl: process.env.STORED_URL || 'No URL stored' });
 });

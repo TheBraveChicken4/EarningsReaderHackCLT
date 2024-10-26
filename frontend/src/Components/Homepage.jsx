@@ -1,12 +1,63 @@
-import { React, useState } from 'react';
+import { React, useState, useEffect } from 'react';
+import GaugeChart from 'react-gauge-chart';
 
 const Homepage = () => {
     const [url, setUrl] = useState('');
     const [urlSuccessMessage, setUrlSuccessMessage] = useState('');
     const [recordingSuccessMessage, setRecordingSuccessMessage] = useState('');
     const [modelSuccessMessage, setModelSuccessMessage] = useState('');
-    const [isRecordingRunning, setIsRecordingRunning] = useState(false);
-    const [isModelRunning, setIsModelRunning] = useState(false);
+    const [, setIsRecordingRunning] = useState(false);
+    const [, setIsModelRunning] = useState(false);
+    const [sentiment, setSentiment] = useState({ positive: 0, negative: 0, neutral: 0 });
+    const [sentimentPercent, setSentimentPercent] = useState(0);
+    const [sentimentEval, setSentimentEval] = useState(0);
+    
+    const chartStyle = {
+        height: 250,
+    };
+
+    // Fetch sentiment values from server
+    const fetchSentiment = async () => {
+        try {
+            const response = await fetch('http://localhost:3000/sentiment');
+            if (response.ok) {
+                const data = await response.json();
+                setSentiment(data);
+            } else {
+                console.error('Error fetching sentiment data');
+            }
+        } catch (error) {
+            console.error('Fetch error:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchSentiment();
+    }, []);
+
+    // Recalculate sentimentPercent whenever sentiment changes
+    useEffect(() => {
+        const positive = parseFloat(sentiment.positive) || 0;
+        const neutral = parseFloat(sentiment.neutral) || 0;
+        const negative = parseFloat(sentiment.negative) || 0;
+
+        const percent = (positive + (0.5 * neutral) - negative);
+        setSentimentPercent(percent);
+        var sentimentClassification = "No Sentiment Detected";
+        console.log(100 * sentimentPercent)
+        if(100 * sentimentPercent <= 20){
+            sentimentClassification = "Very Poorly";
+        } else if (100 * sentimentPercent <= 40){
+            sentimentClassification = "Mostly Poorly";
+        } else if (100 * sentimentPercent <= 60){
+            sentimentClassification = "Neutral";
+        } else if (100 * sentimentPercent <= 80){
+            sentimentClassification = "Mostly Well";
+        } else {
+            sentimentClassification = "Very Well";
+        }
+        setSentimentEval(sentimentClassification);
+    }, [sentiment]);
 
     const isValidUrl = (string) => {
         const pattern = new RegExp('^(https?:\\/\\/)?'+
@@ -27,7 +78,7 @@ const Homepage = () => {
         }
 
         const urlData = { url };
-        console.log('Sending URL: ', urlData);
+        console.log('Sending URL:', urlData);
 
         try {
             const response = await fetch('http://localhost:3000/write-url', {
@@ -147,7 +198,7 @@ const Homepage = () => {
 
     return (
         <div className="homepage min-h-screen text-center font-customFont">
-            <h1 className="text-[10vh] ">Call Report</h1>
+            <h1 className="text-[10vh] ">Earnings Call Report</h1>
             <p className="m-[2vh] m-b-[2vh] ">Enter a URL below to collect information from the earnings call.</p>
             <form onSubmit={handleSubmit} className="items-center">
                 <input 
@@ -181,6 +232,20 @@ const Homepage = () => {
                 {modelSuccessMessage && (
                     <p className="mt-4 text-green-600">{modelSuccessMessage}</p>
                 )}
+            </div>
+            <hr className="m-5 border-blue-900"/>
+            <div className="results mt-5 text-center">
+                <h2 className="text-[4vh]">Earnings Call Summary</h2>
+                <div className="gauge text-center max-w-[50%] m-auto block">
+                    <GaugeChart id="call-result-chart" style={chartStyle} 
+                        arcWidth={0.3} 
+                        colors={["#FF5252", "#4CAF50"]} 
+                        nrOfLevels={20}
+                        percent={sentimentPercent}
+                        textColor="#000000"
+                    />
+                    <p className="m-[10vh]">Based on this earnings call, the company is doing: {sentimentEval}</p>
+                </div>
             </div>
         </div>
     );

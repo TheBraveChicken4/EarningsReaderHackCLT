@@ -96,10 +96,16 @@ app.post('/set-model-running', (req, res) => {
     }
 });
 
-
-
 app.get('/stored-url', (req, res) => {
     res.json({ storedUrl: process.env.STORED_URL || 'No URL stored' });
+});
+
+app.get('/sentiment', (req, res) => {
+    res.json({
+        positive: process.env.POSITIVE || 0.16,
+        negative: process.env.NEGATIVE || 0.04,
+        neutral: process.env.NEUTRAL || 0.8,
+    });
 });
 
 app.get('/', (req, res) => {

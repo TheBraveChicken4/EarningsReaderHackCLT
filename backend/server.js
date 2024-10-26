@@ -15,6 +15,8 @@ app.post('/write-url', (req, res) => {
 
     fs.writeFileSync('.env', `STORED_URL=${url}\n`, { flag: 'a' });
 
+    fs.appendFileSync('url.txt', `${url}\n`);
+
     require('dotenv').config();
 
     console.log('Stored URL:', process.env.STORED_URL);

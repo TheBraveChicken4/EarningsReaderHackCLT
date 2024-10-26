@@ -8,7 +8,7 @@ const Homepage = () => {
     const [modelSuccessMessage, setModelSuccessMessage] = useState('');
     const [, setIsRecordingRunning] = useState(false);
     const [, setIsModelRunning] = useState(false);
-    const [sentiment, setSentiment] = useState({ positive: 0, negative: 0, neutral: 0 });
+    const [sentiment, setSentiment] = useState({ positive: '0', negative: '0', neutral: '0' });
     const [sentimentPercent, setSentimentPercent] = useState(0);
     const [sentimentEval, setSentimentEval] = useState(0);
     
@@ -37,27 +37,28 @@ const Homepage = () => {
 
     // Recalculate sentimentPercent whenever sentiment changes
     useEffect(() => {
-        const positive = parseFloat(sentiment.positive) || 0;
-        const neutral = parseFloat(sentiment.neutral) || 0;
-        const negative = parseFloat(sentiment.negative) || 0;
-
-        const percent = (positive + (0.5 * neutral) - negative);
+        const positive = 100 * (parseFloat(sentiment.positive) || 0);
+        const neutral = 100 * (parseFloat(sentiment.neutral) || 0);
+        const negative = 100 * (parseFloat(sentiment.negative) || 0);
+    
+        const percent = (positive + (0.5 * neutral) - negative) / 100;
         setSentimentPercent(percent);
-        var sentimentClassification = "No Sentiment Detected";
-        console.log(100 * sentimentPercent)
-        if(100 * sentimentPercent <= 20){
+    
+        let sentimentClassification = "No Sentiment Detected";
+        if (percent <= 0.2) {
             sentimentClassification = "Very Poorly";
-        } else if (100 * sentimentPercent <= 40){
+        } else if (percent <= 0.4) {
             sentimentClassification = "Mostly Poorly";
-        } else if (100 * sentimentPercent <= 60){
+        } else if (percent <= 0.6) {
             sentimentClassification = "Neutral";
-        } else if (100 * sentimentPercent <= 80){
+        } else if (percent <= 0.8) {
             sentimentClassification = "Mostly Well";
         } else {
             sentimentClassification = "Very Well";
         }
         setSentimentEval(sentimentClassification);
     }, [sentiment]);
+    
 
     const isValidUrl = (string) => {
         const pattern = new RegExp('^(https?:\\/\\/)?'+

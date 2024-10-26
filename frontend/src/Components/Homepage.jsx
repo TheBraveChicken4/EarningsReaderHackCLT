@@ -44,7 +44,7 @@ const Homepage = () => {
     };
 
     return (
-        <div className="homepage text-center">
+        <div className="homepage min-h-screen text-center">
             <h1 className="text-[10vh]">Call Report</h1>
             <p className="m-[2vh] m-b-[2vh]">Enter a URL below to collect information from the earnings call.</p>
             <form onSubmit={handleSubmit} className="items-center">

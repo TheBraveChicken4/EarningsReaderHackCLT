@@ -11,6 +11,7 @@ const Homepage = () => {
     const [sentiment, setSentiment] = useState({ positive: '0', negative: '0', neutral: '0' });
     const [sentimentPercent, setSentimentPercent] = useState(0);
     const [sentimentEval, setSentimentEval] = useState(0);
+    const [sentimentColor, setSentimentColor] = useState(0);
     
     const chartStyle = {
         height: 250,
@@ -41,22 +42,28 @@ const Homepage = () => {
         const neutral = 100 * (parseFloat(sentiment.neutral) || 0);
         const negative = 100 * (parseFloat(sentiment.negative) || 0);
     
-        const percent = (positive + (0.5 * neutral) - negative) / 100;
+        const percent = ((positive - negative) + (positive + neutral + negative)) / (2*(positive + neutral + negative));
         setSentimentPercent(percent);
     
+        let color = "black";
         let sentimentClassification = "No Sentiment Detected";
         if (percent <= 0.2) {
             sentimentClassification = "Very Poorly";
+            color = "red";
         } else if (percent <= 0.4) {
             sentimentClassification = "Mostly Poorly";
+            color = "maroon";
         } else if (percent <= 0.6) {
             sentimentClassification = "Neutral";
         } else if (percent <= 0.8) {
             sentimentClassification = "Mostly Well";
+            color = "green";
         } else {
             sentimentClassification = "Very Well";
+            color = "lime";
         }
         setSentimentEval(sentimentClassification);
+        setSentimentColor(color);
     }, [sentiment]);
     
 
@@ -245,7 +252,7 @@ const Homepage = () => {
                         percent={sentimentPercent}
                         textColor="#000000"
                     />
-                    <p className="m-[10vh]">Based on this earnings call, the company is doing: {sentimentEval}</p>
+                    <p className="m-[10vh] text-xl ">Based on this earnings call, the company is doing: <span style={{color: sentimentColor}}>{sentimentEval}</span></p>
                 </div>
             </div>
         </div>

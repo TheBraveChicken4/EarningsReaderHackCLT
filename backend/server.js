@@ -102,8 +102,9 @@ app.get('/stored-url', (req, res) => {
 
 app.get('/sentiment', (req, res) => {
     res.json({
-        positive: process.env.POSITIVE || 0.16,
-        negative: process.env.NEGATIVE || 0.04,
+        //Using fixed numbers as a placeholder
+        positive: process.env.POSITIVE || 0.04,
+        negative: process.env.NEGATIVE || 0.16,
         neutral: process.env.NEUTRAL || 0.8,
     });
 });

@@ -206,7 +206,7 @@ const Homepage = () => {
 
     return (
         <div className="homepage min-h-screen text-center font-customFont">
-            <h1 className="text-[10vh] ">Earnings Call Report</h1>
+            <h1 className="text-[8vh] ">Earnings Call Report</h1>
             <p className="m-[2vh] m-b-[2vh] ">Enter a URL below to collect information from the earnings call.</p>
             <form onSubmit={handleSubmit} className="items-center">
                 <input 
@@ -241,12 +241,10 @@ const Homepage = () => {
                     <p className="mt-4 text-green-600">{modelSuccessMessage}</p>
                 )}
             </div>
-            <hr className="m-5 border-blue-900"/>
             <div className="results mt-5 text-center">
                 <h2 className="text-[4vh]">Earnings Call Summary</h2>
                 <div className="gauge text-center max-w-[50%] m-auto block">
                     <GaugeChart id="call-result-chart" style={chartStyle} 
-                        animate={false} 
                         arcWidth={0.3} 
                         colors={["#FF5252", "#4CAF50"]} 
                         nrOfLevels={20}

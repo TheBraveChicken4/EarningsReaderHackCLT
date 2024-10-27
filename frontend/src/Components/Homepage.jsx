@@ -246,6 +246,7 @@ const Homepage = () => {
                 <h2 className="text-[4vh]">Earnings Call Summary</h2>
                 <div className="gauge text-center max-w-[50%] m-auto block">
                     <GaugeChart id="call-result-chart" style={chartStyle} 
+                        animate={false} 
                         arcWidth={0.3} 
                         colors={["#FF5252", "#4CAF50"]} 
                         nrOfLevels={20}

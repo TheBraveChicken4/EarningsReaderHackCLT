@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
+const path = require('path');
 const { exec } = require('child_process');
 require('dotenv').config();
 
@@ -10,69 +11,126 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
-const outputDir = './output'; // Point to the output directory in the backend folder
-const urlFilePath = `${outputDir}/url.txt`;
+const outputDir = './output';
 const envFilePath = `${outputDir}/.env`;
+const dataFilePath = path.join(outputDir, 'data.json');
 
-// Ensure output directory exists
 if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir);
 }
 
-app.post('/write-url', (req, res) => {
-    const { url } = req.body;
-    console.log('Received URL:', url);
+const outputSentimentPath = path.join(__dirname, 'output', 'sentiment.txt');
 
-    // Read existing URLs from output/url.txt
-    const existingUrls = fs.existsSync(urlFilePath) 
-        ? fs.readFileSync(urlFilePath, 'utf-8').split('\n').map(line => line.trim()) 
-        : [];
+const runAudioToSentiment = () => {
+    return new Promise((resolve, reject) => {
+        exec('python audio_to_sentiment.py', (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error executing script: ${error.message}`);
+                return reject(error);
+            }
+            if (stderr) {
+                console.error(`Script stderr: ${stderr}`);
+                return reject(new Error(stderr));
+            }
+            console.log(`Script output: ${stdout}`);
+            resolve(stdout.trim());
+        });
+    });
+};
 
-    if (existingUrls.includes(url)) {
-        return res.status(400).json({ error: 'This URL has already been submitted.' });
+const readSentimentFromFile = () => {
+    return new Promise((resolve, reject) => {
+        fs.readFile(outputSentimentPath, 'utf8', (err, data) => {
+            if (err) {
+                console.error('Error reading sentiment file:', err);
+                return reject(err);
+            }
+
+            const sentimentOutput = parseFloat(data.trim());
+            if (isNaN(sentimentOutput)) {
+                return reject(new Error('Invalid output from sentiment file'));
+            }
+            resolve(sentimentOutput);
+        });
+    });
+};
+
+
+app.post('/write-data', async (req, res) => {
+    const { companyName, qxYear, sentimentPercent } = req.body;
+
+    // Basic validation
+    if (!companyName || !qxYear || typeof sentimentPercent !== 'number') {
+        return res.status(400).json({ error: 'Invalid input data' });
     }
 
-    // Write URL to .env file and output/url.txt
-    try {
-        fs.writeFileSync(envFilePath, `STORED_URL=${url}\n`, { flag: 'w' });
-        fs.appendFileSync(urlFilePath, `${url}\n`);
-    } catch (err) {
-        console.error('Error writing URL to file:', err);
-        return res.status(500).json({ error: 'Error writing URL to file' });
-    }
+    // Prepare data to be written
+    const dataToStore = {
+        companyName,
+        qxYear,
+        sentimentPercent,
+        timestamp: new Date(),
+    };
 
-    // Call the Python script to get text data
-    exec(`python retrieve_text.py`, { cwd: __dirname }, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error executing script: ${stderr}`);
-            return res.status(500).json({ error: 'Error retrieving text data' });
+    // Read the existing data
+    fs.readFile(dataFilePath, 'utf8', async (err, data) => {
+        if (err) {
+            console.error('Error reading data file:', err);
+            return res.status(500).json({ error: 'Internal server error' });
         }
 
-        console.log('Python script output:', stdout);
-        
-        res.json({ message: 'URL stored successfully', textLength: stdout.trim() });
+        let jsonData = [];
+        if (data) {
+            try {
+                jsonData = JSON.parse(data);
+            } catch (parseError) {
+                console.error('Error parsing JSON:', parseError);
+                return res.status(500).json({ error: 'Internal server error' });
+            }
+        }
+
+        // Add the new entry
+        jsonData.push(dataToStore);
+
+        // Write back to the file
+        fs.writeFile(dataFilePath, JSON.stringify(jsonData, null, 2), 'utf8', async (writeErr) => {
+            if (writeErr) {
+                console.error('Error writing data to file:', writeErr);
+                return res.status(500).json({ error: 'Internal server error' });
+            }
+
+            // Check if MODELRUNNING is true
+            let sentimentOutput = null;
+            if (process.env.MODELRUNNING === 'true') {
+                try {
+                    // Execute the script to get the sentiment value
+                    sentimentOutput = await runAudioToSentiment();
+                } catch (err) {
+                    console.error('Error running sentiment analysis:', err);
+                    return res.status(500).json({ error: 'Error running sentiment analysis' });
+                }
+            }
+
+            // Read the sentiment value from the file
+            let fileSentimentOutput = null;
+            try {
+                fileSentimentOutput = await readSentimentFromFile();
+            } catch (err) {
+                console.error('Error reading sentiment from file:', err);
+                return res.status(500).json({ error: 'Error reading sentiment from file' });
+            }
+
+            // Normalize both outputs
+            const normalizedScriptSentiment = (parseFloat(sentimentOutput) + 1) / 2;
+            const normalizedFileSentiment = (fileSentimentOutput + 1) / 2;
+
+            // Use either output as needed (you can choose which one to send)
+            res.status(200).json({
+                message: 'Data submitted successfully',
+                sentimentPercent: normalizedFileSentiment // Use normalizedFileSentiment or normalizedScriptSentiment
+            });
+        });
     });
-});
-
-app.post('/set-recording-running', (req, res) => {
-    const { recordingRunning } = req.body;
-
-    if (typeof recordingRunning !== 'boolean') {
-        return res.status(400).json({ error: 'Invalid recording running status.' });
-    }
-
-    // Read existing env variables
-    const currentUrl = process.env.STORED_URL || '';
-    const currentModelRunning = process.env.MODELRUNNING || 'false';
-
-    // Write the new state
-    try {
-        fs.writeFileSync(envFilePath, `STORED_URL=${currentUrl}\nRECORDINGRUNNING=${recordingRunning}\nMODELRUNNING=${currentModelRunning}\n`, { flag: 'w' });
-        res.json({ message: `Recording running state set to ${recordingRunning}` });
-    } catch (err) {
-        console.error('Error writing recording running state to file:', err);
-        res.status(500).json({ error: 'Error writing recording running state to file' });
-    }
 });
 
 app.post('/set-model-running', (req, res) => {
@@ -82,13 +140,8 @@ app.post('/set-model-running', (req, res) => {
         return res.status(400).json({ error: 'Invalid model running status.' });
     }
 
-    // Read existing env variables
-    const currentUrl = process.env.STORED_URL || '';
-    const currentRecordingRunning = process.env.RECORDINGRUNNING || 'false';
-
-    // Write the new state
     try {
-        fs.writeFileSync(envFilePath, `STORED_URL=${currentUrl}\nRECORDINGRUNNING=${currentRecordingRunning}\nMODELRUNNING=${modelRunning}\n`, { flag: 'w' });
+        fs.writeFileSync(envFilePath, `MODELRUNNING=${modelRunning}\n`, { flag: 'w' });
         res.json({ message: `Model running state set to ${modelRunning}` });
     } catch (err) {
         console.error('Error writing model running state to file:', err);
@@ -96,17 +149,41 @@ app.post('/set-model-running', (req, res) => {
     }
 });
 
-app.get('/stored-url', (req, res) => {
-    res.json({ storedUrl: process.env.STORED_URL || 'No URL stored' });
+app.get('/companies', (req, res) => {
+    const dataFilePath = `${outputDir}/data.json`;
+    
+    if (fs.existsSync(dataFilePath)) {
+        const jsonData = fs.readFileSync(dataFilePath);
+        const existingData = JSON.parse(jsonData);
+        
+        // Extract unique company names
+        const companies = [...new Set(existingData.map(entry => entry.companyName))];
+        res.json(companies);
+    } else {
+        res.json([]);
+    }
 });
 
 app.get('/sentiment', (req, res) => {
-    res.json({
-        //Using fixed numbers as a placeholder
-        positive: process.env.POSITIVE || 0.04,
-        negative: process.env.NEGATIVE || 0.16,
-        neutral: process.env.NEUTRAL || 0.8,
+    fs.readFile(outputSentimentPath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading sentiment file:', err);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+
+        const sentimentOutput = parseFloat(data.trim());
+        if (isNaN(sentimentOutput)) {
+            return res.status(500).json({ error: 'Invalid output from sentiment file' });
+        }
+
+        // Normalize the sentiment value to [0, 1]
+        const normalizedSentiment = (sentimentOutput + 1) / 2;
+        res.json(normalizedSentiment);
     });
+});
+
+app.get('/data.json', (req, res) => {
+    res.sendFile(path.join(__dirname, 'output', 'data.json')); // Adjust the path as needed
 });
 
 app.get('/', (req, res) => {
